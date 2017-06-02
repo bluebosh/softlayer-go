@@ -17,11 +17,12 @@
 package session
 
 import (
+	"net"
+	"runtime"
 	"fmt"
 	"log"
 	"os"
 	"os/user"
-	"runtime"
 	"strings"
 	"time"
 
@@ -75,7 +76,10 @@ type TransportHandler interface {
 		pResult interface{}) error
 }
 
-const DefaultTimeout = time.Second * 120
+const (
+	DefaultTimeout   = time.Second * 120
+	DefaultRetryWait = time.Second * 3
+)
 
 // Session stores the information required for communication with the SoftLayer
 // API
@@ -112,6 +116,16 @@ type Session struct {
 	// The user agent to send with each API request
 	// User shouldn't be able to change or set the base user agent
 	userAgent string
+
+	// Retries is the number of times to retry a connection that failed due to a timeout.
+	Retries int
+
+	// RetryWait minimum wait time to retry a request
+	RetryWait time.Duration
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 // New creates and returns a pointer to a new session object.  It takes up to
@@ -204,6 +218,8 @@ func New(args ...interface{}) *Session {
 		}
 	}
 
+	sess.RetryWait = DefaultRetryWait
+
 	return sess
 }
 
@@ -252,6 +268,29 @@ func getDefaultTransport(endpointURL string) TransportHandler {
 	}
 
 	return transportHandler
+}
+
+func isTimeout(err error) bool {
+	if slErr, ok := err.(sl.Error); ok {
+		switch slErr.StatusCode {
+		case 408, 504, 599:
+			return true
+		}
+	}
+
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		return true
+	}
+
+	if netErr, ok := err.(*net.OpError); ok && netErr.Timeout() {
+		return true
+	}
+
+	if netErr, ok := err.(net.UnknownNetworkError); ok && netErr.Timeout() {
+		return true
+	}
+
+	return false
 }
 
 func getDefaultUserAgent() string {
