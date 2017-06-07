@@ -31,6 +31,7 @@ import (
 // DefaultEndpoint is the default endpoint for API calls, when no override
 // is provided.
 const DefaultEndpoint = "https://api.softlayer.com/rest/v3"
+const SoftlayerGoLogTag = "softlayerGo"
 
 // TransportHandler
 type TransportHandler interface {

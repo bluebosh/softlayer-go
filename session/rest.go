@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -30,9 +29,13 @@ import (
 
 	"github.com/softlayer/softlayer-go/datatypes"
 	"github.com/softlayer/softlayer-go/sl"
+
+	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 )
 
-type RestTransport struct{}
+type RestTransport struct {
+	Logger boshlog.Logger
+}
 
 // DoRequest - Implementation of the TransportHandler interface for handling
 // calls to the REST endpoint.
@@ -56,7 +59,8 @@ func (r *RestTransport) DoRequest(sess *Session, service string, method string, 
 		path,
 		restMethod,
 		bytes.NewBuffer(parameters),
-		options)
+		options,
+		r.Logger)
 
 	if err != nil {
 		return sl.Error{Wrapped: err}
@@ -169,9 +173,9 @@ func encodeQuery(opts *sl.Options) string {
 	return query.Encode()
 }
 
-func makeHTTPRequest(session *Session, path string, requestType string, requestBody *bytes.Buffer, options *sl.Options) ([]byte, int, error) {
-	client := http.DefaultClient
-	client.Timeout = DefaultTimeout
+func makeHTTPRequest(session *Session, path string, requestType string, requestBody *bytes.Buffer, options *sl.Options, logger boshlog.Logger) ([]byte, int, error) {
+	tr := &http.Transport{DisableKeepAlives: true}
+	client := &http.Client{Transport: tr}
 	if session.Timeout != 0 {
 		client.Timeout = session.Timeout
 	}
@@ -191,10 +195,11 @@ func makeHTTPRequest(session *Session, path string, requestType string, requestB
 	req.SetBasicAuth(session.UserName, session.APIKey)
 
 	req.URL.RawQuery = encodeQuery(options)
+	req.Close = true
 
 	if session.Debug {
-		log.Println("[DEBUG] Request URL: ", requestType, req.URL)
-		log.Println("[DEBUG] Parameters: ", requestBody.String())
+		logger.Debug(SoftlayerGoLogTag, "Request URL: ", requestType, req.URL)
+		logger.Debug(SoftlayerGoLogTag, "Parameters: ", requestBody.String())
 	}
 
 	resp, err := client.Do(req)
@@ -210,7 +215,7 @@ func makeHTTPRequest(session *Session, path string, requestType string, requestB
 	}
 
 	if session.Debug {
-		log.Println("[DEBUG] Response: ", string(responseBody))
+		logger.Debug(SoftlayerGoLogTag, "Response: ", string(responseBody))
 	}
 	return responseBody, resp.StatusCode, nil
 }
