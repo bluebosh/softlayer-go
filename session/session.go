@@ -100,6 +100,9 @@ type Session struct {
 	// session. Requests that take longer that the specified timeout
 	// will result in an error.
 	Timeout time.Duration
+	
+	// Access logger
+	Logger boshlog.Logger
 }
 
 // New creates and returns a pointer to a new session object.  It takes up to
@@ -202,7 +205,7 @@ func New(args ...interface{}) *Session {
 // For a description of parameters, see TransportHandler.DoRequest in this package
 func (r *Session) DoRequest(service string, method string, args []interface{}, options *sl.Options, pResult interface{}) error {
 	if r.TransportHandler == nil {
-		r.TransportHandler = getDefaultTransport(r.Endpoint)
+		r.TransportHandler = getDefaultTransport(r.Endpoint, r.Logger)
 	}
 
 	return r.TransportHandler.DoRequest(r, service, method, args, options, pResult)
@@ -214,13 +217,15 @@ func envFallback(keyName string, value *string) {
 	}
 }
 
-func getDefaultTransport(endpointURL string) TransportHandler {
+func getDefaultTransport(endpointURL string, logger boshlog.Logger) TransportHandler {
 	var transportHandler TransportHandler
 
 	if strings.Contains(endpointURL, "/xmlrpc/") {
 		transportHandler = &XmlRpcTransport{}
 	} else {
-		transportHandler = &RestTransport{}
+		transportHandler = &RestTransport{
+			Logger: logger,
+		}
 	}
 
 	return transportHandler
