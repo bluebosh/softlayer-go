@@ -252,6 +252,36 @@ func (r *Session) ResetUserAgent() {
 	r.userAgent = getDefaultUserAgent()
 }
 
+// SetTimeout creates a copy of the session and sets the passed timeout into it
+// before returning it.
+func (r *Session) SetTimeout(timeout time.Duration) *Session {
+	var s Session
+	s = *r
+	s.Timeout = timeout
+
+	return &s
+}
+
+// SetRetries creates a copy of the session and sets the passed retries into it
+// before returning it.
+func (r *Session) SetRetries(retries int) *Session {
+	var s Session
+	s = *r
+	s.Retries = retries
+
+	return &s
+}
+
+// SetRetryWait creates a copy of the session and sets the passed retryWait into it
+// before returning it.
+func (r *Session) SetRetryWait(retryWait time.Duration) *Session {
+	var s Session
+	s = *r
+	s.RetryWait = retryWait
+
+	return &s
+}
+
 func envFallback(keyName string, value *string) {
 	if *value == "" {
 		*value = os.Getenv(keyName)
