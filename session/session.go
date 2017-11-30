@@ -43,6 +43,8 @@ func init() {
 // is provided.
 const DefaultEndpoint = "https://api.softlayer.com/rest/v3"
 
+const RateLimitExceededException = "SoftLayer_Exception_WebService_RateLimitExceeded"
+
 // TransportHandler interface for the protocol-specific handling of API requests.
 type TransportHandler interface {
 	// DoRequest is the protocol-specific handler for making API requests.
@@ -307,6 +309,9 @@ func isTimeout(err error) bool {
 	if slErr, ok := err.(sl.Error); ok {
 		switch slErr.StatusCode {
 		case 408, 504, 599:
+			return true
+		}
+		if slErr.Exception == RateLimitExceededException {
 			return true
 		}
 	}
